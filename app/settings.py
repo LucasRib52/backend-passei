@@ -95,11 +95,11 @@ WSGI_APPLICATION = 'app.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'cursopasseii$passei_db',
-        'USER': 'cursopasseii',
-        'PASSWORD': '102030lu',
-        'HOST': 'cursopasseii.mysql.pythonanywhere-services.com',
-        'PORT': '3306',
+        'NAME': os.getenv('DB_NAME', 'cursopasseii$passei_db'),
+        'USER': os.getenv('DB_USER', 'cursopasseii'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'cursopasseii.mysql.pythonanywhere-services.com'),
+        'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",

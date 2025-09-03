@@ -12,6 +12,13 @@ os.environ['SECRET_KEY'] = 'django-insecure-8yi_*px%wt7_(wgjseed+gxz-t^jb%6=+7*0
 os.environ['DEBUG'] = 'False'
 os.environ['ALLOWED_HOSTS'] = 'cursopasseii.pythonanywhere.com'
 
+# Database Settings
+os.environ['DB_NAME'] = 'cursopasseii$passei_db'
+os.environ['DB_USER'] = 'cursopasseii'
+os.environ['DB_PASSWORD'] = '102030lu'
+os.environ['DB_HOST'] = 'cursopasseii.mysql.pythonanywhere-services.com'
+os.environ['DB_PORT'] = '3306'
+
 # TheMembers Integration
 os.environ['THEMEMBERS_API_URL'] = 'https://registration.themembers.dev.br/api'
 os.environ['THEMEMBERS_DEVELOPER_TOKEN'] = 'c8ba2c31-3129-40ed-88cb-04e0f305d8d9'
@@ -38,6 +45,11 @@ if path not in sys.path:
 os.environ['SECRET_KEY'] = 'django-insecure-8yi_*px%wt7_(wgjseed+gxz-t^jb%6=+7*04u-pzz&#tmj%0d'
 os.environ['DEBUG'] = 'False'
 os.environ['ALLOWED_HOSTS'] = 'cursopasseii.pythonanywhere.com'
+os.environ['DB_NAME'] = 'cursopasseii$passei_db'
+os.environ['DB_USER'] = 'cursopasseii'
+os.environ['DB_PASSWORD'] = '102030lu'
+os.environ['DB_HOST'] = 'cursopasseii.mysql.pythonanywhere-services.com'
+os.environ['DB_PORT'] = '3306'
 os.environ['THEMEMBERS_DEVELOPER_TOKEN'] = 'c8ba2c31-3129-40ed-88cb-04e0f305d8d9'
 os.environ['THEMEMBERS_DEVELOPER_ID'] = '097493d3-680d-439f-a405-0c50f132582a'
 os.environ['THEMEMBERS_PLATFORM_TOKEN'] = 'c9012a5e-13c1-48ae-bfa9-584ff4a56c13'
