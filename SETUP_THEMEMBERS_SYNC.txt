@@ -1,0 +1,316 @@
+===============================================================================
+                    GUIA DE CONFIGURAÇÃO THEMEMBERS SYNC
+                    Antes do Deploy na PythonAnywhere
+===============================================================================
+
+📋 CHECKLIST PRÉ-DEPLOY:
+□ 1. Testar sincronização localmente
+□ 2. Configurar variáveis de ambiente
+□ 3. Preparar script de sincronização
+□ 4. Configurar cron job na PythonAnywhere
+□ 5. Testar em produção
+
+===============================================================================
+PASSO 1: TESTAR SINCRONIZAÇÃO LOCALMENTE
+===============================================================================
+
+1.1 - Execute o comando de sincronização:
+```bash
+cd backend_passei
+python manage.py sync_themembers_products --verbose
+```
+
+1.2 - Verifique se funcionou:
+- Deve mostrar "✅ Sincronização concluída com sucesso!"
+- Deve listar os produtos encontrados
+- Deve criar registros no banco de dados
+
+1.3 - Teste o endpoint da API:
+```bash
+# Inicie o servidor
+python manage.py runserver 8000
+
+# Teste o endpoint (em outro terminal)
+curl http://localhost:8000/api/v1/themembers/products/
+```
+
+===============================================================================
+PASSO 2: CONFIGURAR VARIÁVEIS DE AMBIENTE
+===============================================================================
+
+2.1 - No PythonAnywhere, crie arquivo .env:
+```bash
+# No diretório do projeto na PythonAnywhere
+nano .env
+```
+
+2.2 - Adicione as configurações:
+```env
+# TheMembers API Configuration
+THEMEMBERS_API_URL=https://registration.themembers.dev.br/api
+THEMEMBERS_DEVELOPER_TOKEN=c8ba2c31-3129-40ed-88cb-04e0f305d8d9
+THEMEMBERS_DEVELOPER_ID=097493d3-680d-439f-a405-0c50f132582a
+THEMEMBERS_PLATFORM_TOKEN=c9012a5e-13c1-48ae-bfa9-584ff4a56c13
+THEMEMBERS_PLATFORM_ID=4072
+
+# Outras configurações
+DEBUG=False
+SECRET_KEY=sua_chave_secreta_aqui
+```
+
+2.3 - Instale python-decouple se não estiver instalado:
+```bash
+pip install python-decouple
+```
+
+===============================================================================
+PASSO 3: PREPARAR SCRIPT DE SINCRONIZAÇÃO
+===============================================================================
+
+3.1 - Crie script de sincronização na PythonAnywhere:
+```bash
+# No diretório do projeto
+nano sync_themembers.sh
+```
+
+3.2 - Conteúdo do script:
+```bash
+#!/bin/bash
+
+# Configurações
+PROJECT_DIR="/home/SEU_USUARIO/SEU_PROJETO/backend_passei"
+LOG_FILE="/home/SEU_USUARIO/themembers_sync.log"
+PYTHON_PATH="/usr/bin/python3.9"
+
+# Função de logging
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# Verificar se o diretório existe
+if [ ! -d "$PROJECT_DIR" ]; then
+    log "ERRO: Diretório não encontrado: $PROJECT_DIR"
+    exit 1
+fi
+
+# Navegar para o diretório
+cd "$PROJECT_DIR" || {
+    log "ERRO: Não foi possível navegar para o diretório"
+    exit 1
+}
+
+# Ativar ambiente virtual (se usado)
+if [ -d "venv" ]; then
+    source venv/bin/activate
+    log "Ambiente virtual ativado"
+fi
+
+# Executar sincronização
+log "Iniciando sincronização TheMembers..."
+$PYTHON_PATH manage.py sync_themembers_products --silent --log-file "$LOG_FILE"
+
+# Verificar resultado
+if [ $? -eq 0 ]; then
+    log "Sincronização concluída com sucesso"
+else
+    log "ERRO: Falha na sincronização"
+fi
+
+# Desativar ambiente virtual
+if [ -n "$VIRTUAL_ENV" ]; then
+    deactivate
+    log "Ambiente virtual desativado"
+fi
+```
+
+3.3 - Torne o script executável:
+```bash
+chmod +x sync_themembers.sh
+```
+
+3.4 - Teste o script manualmente:
+```bash
+./sync_themembers.sh
+```
+
+===============================================================================
+PASSO 4: CONFIGURAR CRON JOB NA PYTHONANYWHERE
+===============================================================================
+
+4.1 - Acesse o painel da PythonAnywhere:
+- Vá para https://www.pythonanywhere.com/user/SEU_USUARIO/
+- Clique em "Tasks" no menu lateral
+
+4.2 - Configure a tarefa cron:
+```bash
+# Comando para executar diariamente às 6h da manhã
+0 6 * * * /home/SEU_USUARIO/SEU_PROJETO/backend_passei/sync_themembers.sh
+
+# OU para executar a cada 4 horas
+0 */4 * * * /home/SEU_USUARIO/SEU_PROJETO/backend_passei/sync_themembers.sh
+
+# OU para executar a cada 2 horas
+0 */2 * * * /home/SEU_USUARIO/SEU_PROJETO/backend_passei/sync_themembers.sh
+```
+
+4.3 - Exemplo prático:
+```bash
+# Se seu usuário é "lucas" e projeto está em "backup-passei"
+0 6 * * * /home/lucas/backup-passei/backend_passei/sync_themembers.sh
+```
+
+===============================================================================
+PASSO 5: TESTAR EM PRODUÇÃO
+===============================================================================
+
+5.1 - Execute sincronização manual na primeira vez:
+```bash
+# No console da PythonAnywhere
+cd /home/SEU_USUARIO/SEU_PROJETO/backend_passei
+python manage.py sync_themembers_products --verbose
+```
+
+5.2 - Verifique os logs:
+```bash
+# Verificar log da sincronização
+tail -f /home/SEU_USUARIO/themembers_sync.log
+
+# Verificar logs do Django
+tail -f /var/log/SEU_USUARIO/SEU_PROJETO.log
+```
+
+5.3 - Teste o endpoint da API:
+```bash
+# Teste se a API está funcionando
+curl https://SEU_USUARIO.pythonanywhere.com/api/v1/themembers/products/
+```
+
+5.4 - Verifique no admin Django:
+- Acesse o admin Django
+- Vá para "TheMembers" > "Produtos TheMembers"
+- Confirme que os produtos foram sincronizados
+
+===============================================================================
+MONITORAMENTO E MANUTENÇÃO
+===============================================================================
+
+6.1 - Verificar se está funcionando:
+```bash
+# Verificar último sync
+python manage.py shell
+>>> from themembers.models import TheMembersSyncLog
+>>> TheMembersSyncLog.objects.last()
+
+# Verificar produtos sincronizados
+>>> from themembers.models import TheMembersProduct
+>>> TheMembersProduct.objects.count()
+```
+
+6.2 - Logs importantes:
+- `/home/SEU_USUARIO/themembers_sync.log` - Log da sincronização
+- `/var/log/SEU_USUARIO/SEU_PROJETO.log` - Log geral da aplicação
+
+6.3 - Comandos úteis:
+```bash
+# Sincronização manual
+python manage.py sync_themembers_products --verbose
+
+# Sincronização silenciosa
+python manage.py sync_themembers_products --silent
+
+# Ver produtos disponíveis
+python manage.py shell
+>>> from themembers.services import CourseSyncService
+>>> sync = CourseSyncService()
+>>> sync.get_available_products().count()
+```
+
+===============================================================================
+TROUBLESHOOTING
+===============================================================================
+
+❌ PROBLEMA: "ModuleNotFoundError: No module named 'drf_spectacular'"
+✅ SOLUÇÃO: Instale as dependências
+```bash
+pip install -r requirements.txt
+```
+
+❌ PROBLEMA: "Permission denied" no script
+✅ SOLUÇÃO: Torne executável
+```bash
+chmod +x sync_themembers.sh
+```
+
+❌ PROBLEMA: Cron não executa
+✅ SOLUÇÃO: Verifique o caminho e permissões
+```bash
+# Teste o comando manualmente primeiro
+/home/SEU_USUARIO/SEU_PROJETO/backend_passei/sync_themembers.sh
+```
+
+❌ PROBLEMA: API não responde
+✅ SOLUÇÃO: Verifique se o servidor está rodando
+```bash
+# Reinicie o servidor web na PythonAnywhere
+# Vá para "Web" > "Reload"
+```
+
+===============================================================================
+CONFIGURAÇÕES FINAIS
+===============================================================================
+
+7.1 - Frequência recomendada:
+- Desenvolvimento: Manual ou a cada 4 horas
+- Produção: Diário às 6h da manhã
+- Alta demanda: A cada 2-4 horas
+
+7.2 - Backup dos dados:
+```bash
+# Backup dos produtos sincronizados
+python manage.py dumpdata themembers.TheMembersProduct > themembers_products_backup.json
+```
+
+7.3 - Alertas (opcional):
+- Configure email de notificação para falhas
+- Monitore os logs regularmente
+- Verifique se novos produtos estão sendo sincronizados
+
+===============================================================================
+RESUMO FINAL
+===============================================================================
+
+✅ CONFIGURAÇÃO COMPLETA:
+1. Sincronização testada localmente
+2. Variáveis de ambiente configuradas
+3. Script de sincronização criado
+4. Cron job configurado
+5. Testado em produção
+
+🎯 RESULTADO:
+- Produtos TheMembers sincronizados automaticamente
+- Logs de monitoramento disponíveis
+- Sincronização manual disponível via comando
+- Endpoint da API funcionando
+
+🚀 PRÓXIMOS PASSOS:
+1. Fazer deploy da aplicação
+2. Monitorar logs por alguns dias
+3. Ajustar frequência se necessário
+4. Configurar alertas (opcional)
+
+===============================================================================
+CONTATOS E SUPORTE
+===============================================================================
+
+📧 Em caso de problemas:
+- Verifique os logs primeiro
+- Teste comandos manualmente
+- Consulte a documentação do TheMembers
+- Verifique configurações da PythonAnywhere
+
+🔗 Links úteis:
+- PythonAnywhere: https://www.pythonanywhere.com/
+- TheMembers API: https://documentation.themembers.dev.br/
+- Django Docs: https://docs.djangoproject.com/
+
+===============================================================================
