@@ -55,8 +55,8 @@ class Course(models.Model):
     # Novos relacionamentos M2M (mantém os campos principais para compatibilidade)
     professors = models.ManyToManyField(Professor, related_name='courses', blank=True, verbose_name='Professores')
     categories = models.ManyToManyField(Category, related_name='courses', blank=True, verbose_name='Categorias')
-    benefits = models.TextField(verbose_name='Benefícios')
-    requirements = models.TextField(verbose_name='Requisitos')
+    benefits = models.TextField(blank=True, null=True, verbose_name='Benefícios')
+    requirements = models.TextField(blank=True, null=True, verbose_name='Requisitos')
     
     # Link do grupo do WhatsApp
     whatsapp_group_link = models.URLField(blank=True, null=True, verbose_name='Link do Grupo WhatsApp', help_text='Link para o grupo do WhatsApp do curso')
