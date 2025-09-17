@@ -119,13 +119,16 @@ class AsaasService:
         # Configurações específicas por método de pagamento
         if payment_method == 'pix':
             payment_data['billingType'] = 'PIX'
+            payment_data['paymentLink'] = True  # Pagamento transparente para PIX
         elif payment_method == 'credit_card':
             payment_data['billingType'] = 'CREDIT_CARD'
             payment_data['paymentLink'] = True  # Cria um link de pagamento público
         elif payment_method == 'bank_slip':
             payment_data['billingType'] = 'BOLETO'
+            payment_data['paymentLink'] = True  # Pagamento transparente para boleto
         elif payment_method == 'bank_slip_installments':
             payment_data['billingType'] = 'BOLETO'
+            payment_data['paymentLink'] = True  # Pagamento transparente para boleto parcelado
             # Parcelamento de boleto
             # Se não vier installments, tenta usar da venda
             installments = installment_count or getattr(sale, 'bank_slip_installment_count', None)
