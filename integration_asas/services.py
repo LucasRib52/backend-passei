@@ -16,7 +16,7 @@ class AsaasService:
     def __init__(self):
         # Configurações do Asaas
         self.api_key = getattr(settings, 'ASAAS_API_KEY', 'sua_chave_aqui')
-        self.environment = getattr(settings, 'ASAAS_ENVIRONMENT', 'sandbox')
+        self.environment = getattr(settings, 'ASAAS_ENVIRONMENT', 'production')
         
         if self.environment == 'sandbox':
             self.base_url = 'https://sandbox.asaas.com/api/v3'

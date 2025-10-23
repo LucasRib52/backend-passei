@@ -256,7 +256,7 @@ THEMEMBERS_PLATFORM_ID = os.getenv('THEMEMBERS_PLATFORM_ID', '')
 
 # Asaas Configuration
 ASAAS_API_KEY = os.getenv('ASAAS_API_KEY', '')
-ASAAS_ENVIRONMENT = os.getenv('ASAAS_ENVIRONMENT', 'sandbox')  # 'sandbox' ou 'production'
+ASAAS_ENVIRONMENT = os.getenv('ASAAS_ENVIRONMENT', 'production')  # 'sandbox' ou 'production'
 ASAAS_BASE_URL = 'https://sandbox.asaas.com/api/v3' if ASAAS_ENVIRONMENT == 'sandbox' else 'https://www.asaas.com/api/v3'
 
 # Static files configuration
