@@ -27,7 +27,6 @@ os.environ['THEMEMBERS_PLATFORM_TOKEN'] = 'c9012a5e-13c1-48ae-bfa9-584ff4a56c13'
 os.environ['THEMEMBERS_PLATFORM_ID'] = '4072'
 
 # ASAAS Integration
-os.environ['ASAAS_API_KEY'] = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjExNWIxN2JjLTE1NjUtNDg5Mi05NjFjLTA5ZDMzNDY1ZGQ5Njo6JGFhY2hfYTg1NjNhNTktOTA4ZS00NTgyLTlkMzItMjJhNzZmYzI5NmY4'
 os.environ['ASAAS_ENVIRONMENT'] = 'production'
 
 # ========================================
