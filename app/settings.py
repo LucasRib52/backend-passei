@@ -216,6 +216,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.1.67:3000",
     "https://frontend-passei.vercel.app",
     "https://frontendpassei.vercel.app",  # Domínio sem hífen
+    "https://www.cursopassei.com.br",  # Domínio de produção
+    "https://cursopassei.com.br",
+    "https://cursopassei.com",
+    "https://www.cursopassei.com",  # Domínio de produção
+  # Domínio de produção sem www
 ]
 
 CORS_ALLOW_CREDENTIALS = True
