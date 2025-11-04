@@ -358,11 +358,15 @@ def create_sale_and_redirect(request):
         print(f"DEBUG: Gerando resposta para método de pagamento: {payment_method}")
         
         if payment_method == 'pix':
-            # Para PIX, retorna QR Code e dados
+            # Para PIX, retorna QR Code (imagem base64) e o código de copiar/colar (payload)
             print(f"DEBUG: Configurando resposta PIX, QR Code length: {len(asaas_payment.pix_qr_code) if asaas_payment.pix_qr_code else 0}")
+            try:
+                pix_code, encoded_img = asaas_service.get_pix_qr_code(asaas_payment.asaas_id)
+            except Exception:
+                pix_code, encoded_img = None, None
             response_data.update({
-                'pix_qr_code': asaas_payment.pix_qr_code,
-                'pix_code': getattr(asaas_payment, 'pix_code', ''),
+                'pix_qr_code': asaas_payment.pix_qr_code or (encoded_img or ''),
+                'pix_code': pix_code or '',
                 'message': 'Pagamento PIX criado. Escaneie o QR Code para pagar.'
             })
         elif payment_method == 'credit_card':
@@ -539,11 +543,15 @@ def create_cart_sale_and_redirect(request):
         print(f"DEBUG: Gerando resposta para método de pagamento: {payment_method}")
         
         if payment_method == 'pix':
-            # Para PIX, retorna QR Code e dados
+            # Para PIX, retorna QR Code (imagem base64) e o código de copiar/colar (payload)
             print(f"DEBUG: Configurando resposta PIX para carrinho")
+            try:
+                pix_code, encoded_img = asaas_service.get_pix_qr_code(asaas_payment.asaas_id)
+            except Exception:
+                pix_code, encoded_img = None, None
             response_data.update({
-                'pix_qr_code': asaas_payment.pix_qr_code,
-                'pix_code': getattr(asaas_payment, 'pix_code', ''),
+                'pix_qr_code': asaas_payment.pix_qr_code or (encoded_img or ''),
+                'pix_code': pix_code or '',
                 'message': f'Pagamento PIX criado para {len(courses_to_process)} cursos. Escaneie o QR Code para pagar.'
             })
         elif payment_method == 'credit_card':

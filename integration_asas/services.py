@@ -151,57 +151,36 @@ class AsaasService:
         payment_response = self._make_request('POST', 'payments', payment_data)
         
         if payment_response:
-            # Para pagamentos PIX, busca o QR Code e o código PIX
+            # Para pagamentos PIX, busca o QR Code
             pix_qr_code = ''
-            pix_code = ''
             if payment_method == 'pix':
-                # Consulta o pagamento para obter o QR Code e o código PIX
+                # Consulta o pagamento para obter o QR Code
                 pix_response = self._make_request('GET', f'payments/{payment_response["id"]}/pixQrCode')
                 if pix_response:
-                    # encodedImage é a imagem base64 do QR Code
                     pix_qr_code = pix_response.get('encodedImage', '') or ''
-                    # payload é o código PIX copiável (string alfanumérica)
-                    pix_code = pix_response.get('payload', '') or ''
             
             # Para cartão e boleto, use a URL pública invoiceUrl retornada pelo pagamento
             invoice_url = payment_response.get('invoiceUrl', '') or ''
             payment_link_url = payment_response.get('paymentLink', '') or ''
             
             # Cria registro local do pagamento
-            # Prepara dados básicos
-            payment_data_dict = {
-                'sale': sale,
-                'asaas_id': payment_response['id'],
-                'asaas_customer_id': customer_id,
-                'payment_type': payment_response['billingType'],
-                'status': payment_response['status'],
-                'value': sale.price,
-                'due_date': due_date,
-                'description': payment_data['description'],
-                'customer_name': sale.student_name,
-                'customer_email': sale.email,
-                'customer_cpf_cnpj': getattr(sale, 'cpf_cnpj', ''),
-                'pix_qr_code': pix_qr_code,
-                'bank_slip_url': payment_response.get('bankSlipUrl', '') or '',
-                'invoice_url': invoice_url,
-                'payment_link_url': payment_link_url
-            }
-            
-            # Tenta criar com pix_code, se falhar cria sem (compatibilidade com banco antigo)
-            try:
-                payment_data_dict['pix_code'] = pix_code
-                asaas_payment = AsaasPayment.objects.create(**payment_data_dict)
-            except Exception as e:
-                # Se falhar (campo não existe no banco), cria sem pix_code
-                payment_data_dict.pop('pix_code', None)
-                asaas_payment = AsaasPayment.objects.create(**payment_data_dict)
-                # Tenta atualizar o campo se existir (para quando migration for aplicada depois)
-                try:
-                    if pix_code:
-                        asaas_payment.pix_code = pix_code
-                        asaas_payment.save(update_fields=['pix_code'])
-                except Exception:
-                    pass
+            asaas_payment = AsaasPayment.objects.create(
+                sale=sale,
+                asaas_id=payment_response['id'],
+                asaas_customer_id=customer_id,
+                payment_type=payment_response['billingType'],
+                status=payment_response['status'],
+                value=sale.price,
+                due_date=due_date,
+                description=payment_data['description'],
+                customer_name=sale.student_name,
+                customer_email=sale.email,
+                customer_cpf_cnpj=getattr(sale, 'cpf_cnpj', ''),
+                pix_qr_code=pix_qr_code,
+                bank_slip_url=payment_response.get('bankSlipUrl', '') or '',
+                invoice_url=invoice_url,
+                payment_link_url=payment_link_url
+            )
 
             # Se for parcelamento de boleto, tentar capturar dados do parcelamento
             try:
@@ -528,10 +507,18 @@ class AsaasService:
             print(f"Erro ao enviar e-mail de acesso para usuário existente: {e}")
     
     def get_pix_qr_code(self, payment_id):
-        """Obtém QR Code PIX de um pagamento"""
-        payment = self._make_request('GET', f'payments/{payment_id}')
-        if payment and payment.get('pix'):
-            return payment['pix'].get('qrCode'), payment['pix'].get('encodedImage')
+        """Obtém o código PIX para copiar e colar (payload) e a imagem base64.
+
+        Retorna uma tupla (pix_code_payload, encoded_image_base64).
+        """
+        # A API v3 do Asaas expõe o endpoint /payments/{id}/pixQrCode
+        # que retorna as chaves 'payload' (texto para copiar e colar)
+        # e 'encodedImage' (PNG em base64 do QR).
+        resp = self._make_request('GET', f'payments/{payment_id}/pixQrCode')
+        if resp:
+            payload = resp.get('payload') or resp.get('qrCode')
+            encoded = resp.get('encodedImage')
+            return payload, encoded
         return None, None
     
     def get_bank_slip_url(self, payment_id):
