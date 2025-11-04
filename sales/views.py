@@ -362,7 +362,7 @@ def create_sale_and_redirect(request):
             print(f"DEBUG: Configurando resposta PIX, QR Code length: {len(asaas_payment.pix_qr_code) if asaas_payment.pix_qr_code else 0}")
             response_data.update({
                 'pix_qr_code': asaas_payment.pix_qr_code,
-                'pix_code': asaas_payment.pix_code,
+                'pix_code': getattr(asaas_payment, 'pix_code', ''),
                 'message': 'Pagamento PIX criado. Escaneie o QR Code para pagar.'
             })
         elif payment_method == 'credit_card':
@@ -543,7 +543,7 @@ def create_cart_sale_and_redirect(request):
             print(f"DEBUG: Configurando resposta PIX para carrinho")
             response_data.update({
                 'pix_qr_code': asaas_payment.pix_qr_code,
-                'pix_code': asaas_payment.pix_code,
+                'pix_code': getattr(asaas_payment, 'pix_code', ''),
                 'message': f'Pagamento PIX criado para {len(courses_to_process)} cursos. Escaneie o QR Code para pagar.'
             })
         elif payment_method == 'credit_card':

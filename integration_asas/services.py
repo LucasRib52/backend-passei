@@ -168,24 +168,40 @@ class AsaasService:
             payment_link_url = payment_response.get('paymentLink', '') or ''
             
             # Cria registro local do pagamento
-            asaas_payment = AsaasPayment.objects.create(
-                sale=sale,
-                asaas_id=payment_response['id'],
-                asaas_customer_id=customer_id,
-                payment_type=payment_response['billingType'],
-                status=payment_response['status'],
-                value=sale.price,
-                due_date=due_date,
-                description=payment_data['description'],
-                customer_name=sale.student_name,
-                customer_email=sale.email,
-                customer_cpf_cnpj=getattr(sale, 'cpf_cnpj', ''),
-                pix_qr_code=pix_qr_code,
-                pix_code=pix_code,
-                bank_slip_url=payment_response.get('bankSlipUrl', '') or '',
-                invoice_url=invoice_url,
-                payment_link_url=payment_link_url
-            )
+            # Prepara dados básicos
+            payment_data_dict = {
+                'sale': sale,
+                'asaas_id': payment_response['id'],
+                'asaas_customer_id': customer_id,
+                'payment_type': payment_response['billingType'],
+                'status': payment_response['status'],
+                'value': sale.price,
+                'due_date': due_date,
+                'description': payment_data['description'],
+                'customer_name': sale.student_name,
+                'customer_email': sale.email,
+                'customer_cpf_cnpj': getattr(sale, 'cpf_cnpj', ''),
+                'pix_qr_code': pix_qr_code,
+                'bank_slip_url': payment_response.get('bankSlipUrl', '') or '',
+                'invoice_url': invoice_url,
+                'payment_link_url': payment_link_url
+            }
+            
+            # Tenta criar com pix_code, se falhar cria sem (compatibilidade com banco antigo)
+            try:
+                payment_data_dict['pix_code'] = pix_code
+                asaas_payment = AsaasPayment.objects.create(**payment_data_dict)
+            except Exception as e:
+                # Se falhar (campo não existe no banco), cria sem pix_code
+                payment_data_dict.pop('pix_code', None)
+                asaas_payment = AsaasPayment.objects.create(**payment_data_dict)
+                # Tenta atualizar o campo se existir (para quando migration for aplicada depois)
+                try:
+                    if pix_code:
+                        asaas_payment.pix_code = pix_code
+                        asaas_payment.save(update_fields=['pix_code'])
+                except Exception:
+                    pass
 
             # Se for parcelamento de boleto, tentar capturar dados do parcelamento
             try:
