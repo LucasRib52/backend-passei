@@ -151,13 +151,17 @@ class AsaasService:
         payment_response = self._make_request('POST', 'payments', payment_data)
         
         if payment_response:
-            # Para pagamentos PIX, busca o QR Code
+            # Para pagamentos PIX, busca o QR Code e o código PIX
             pix_qr_code = ''
+            pix_code = ''
             if payment_method == 'pix':
-                # Consulta o pagamento para obter o QR Code
+                # Consulta o pagamento para obter o QR Code e o código PIX
                 pix_response = self._make_request('GET', f'payments/{payment_response["id"]}/pixQrCode')
                 if pix_response:
+                    # encodedImage é a imagem base64 do QR Code
                     pix_qr_code = pix_response.get('encodedImage', '') or ''
+                    # payload é o código PIX copiável (string alfanumérica)
+                    pix_code = pix_response.get('payload', '') or ''
             
             # Para cartão e boleto, use a URL pública invoiceUrl retornada pelo pagamento
             invoice_url = payment_response.get('invoiceUrl', '') or ''
@@ -177,6 +181,7 @@ class AsaasService:
                 customer_email=sale.email,
                 customer_cpf_cnpj=getattr(sale, 'cpf_cnpj', ''),
                 pix_qr_code=pix_qr_code,
+                pix_code=pix_code,
                 bank_slip_url=payment_response.get('bankSlipUrl', '') or '',
                 invoice_url=invoice_url,
                 payment_link_url=payment_link_url

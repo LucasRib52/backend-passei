@@ -13,7 +13,7 @@ class AsaasPaymentSerializer(serializers.ModelSerializer):
             'id', 'sale', 'sale_id', 'asaas_id', 'asaas_customer_id',
             'payment_type', 'status', 'value', 'due_date', 'payment_date',
             'description', 'customer_name', 'customer_email', 'customer_cpf_cnpj',
-            'pix_qr_code', 'bank_slip_url', 'webhook_received',
+            'pix_qr_code', 'pix_code', 'bank_slip_url', 'webhook_received',
             'last_webhook_update', 'created_at', 'updated_at'
         ]
         read_only_fields = [
@@ -72,6 +72,7 @@ class PaymentStatusResponseSerializer(serializers.Serializer):
     due_date = serializers.DateField()
     payment_date = serializers.DateTimeField(allow_null=True)
     pix_qr_code = serializers.CharField(allow_blank=True)
+    pix_code = serializers.CharField(allow_blank=True)
     bank_slip_url = serializers.URLField(allow_blank=True)
     is_paid = serializers.BooleanField()
     is_overdue = serializers.BooleanField()
