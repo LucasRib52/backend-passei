@@ -3,8 +3,8 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Sum, Count, Q, F
-from django.db.models.functions import Coalesce
+from django.db.models import Sum, Count, Q, F, CharField, Value
+from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 from datetime import datetime, timedelta
 from .serializers import (
@@ -86,6 +86,7 @@ class DashboardOverviewView(generics.GenericAPIView):
             conversion_rate = (total_sales / total_attempts * 100) if total_attempts > 0 else 0
             
             # Vendas recentes agrupadas por pagamento (últimas 5 checkouts)
+            # Otimizado: select_related para evitar N+1 queries
             sales_qs = Sale.objects.select_related('course').filter(
                 status='paid'
             ).order_by('-created_at')[:50]
@@ -136,43 +137,58 @@ class DashboardOverviewView(generics.GenericAPIView):
                     'payment_method_display': sale.get_payment_method_display()
                 })
             
-            # Cursos mais vendidos
-            top_courses = (
+            # Cursos mais vendidos - OTIMIZADO: queries agregadas em uma única passada
+            from django.db.models import Case, When, IntegerField, Max
+            
+            top_courses_base = (
                 Sale.objects.filter(status='paid')
                 .annotate(course_title=Coalesce(F('course__title'), F('course_title_snapshot')))
                 .values('course_title')
                 .annotate(
                     total_sales=Count('id'),
-                    total_revenue=Sum('price')
+                    total_revenue=Sum('price'),
+                    last_sale_date=Max('created_at')
                 )
                 .order_by('-total_revenue')[:5]
             )
             
-            top_courses_data = []
-            for course in top_courses:
-                # Calcula taxa de conversão por curso
-                title = course['course_title']
-                course_sales = Sale.objects.filter(
-                    Q(course__title=title) | Q(course_title_snapshot=title),
-                    status='paid'
-                ).count()
-                course_attempts = Sale.objects.filter(
-                    Q(course__title=title) | Q(course_title_snapshot=title)
-                ).count()
-                course_conversion = (course_sales / course_attempts * 100) if course_attempts > 0 else 0
+            # Pega títulos para calcular conversão de uma vez
+            course_titles = [c['course_title'] for c in top_courses_base]
+            
+            # Query única para pegar attempts de todos os cursos
+            conversion_data = {}
+            if course_titles:
+                conversion_query = (
+                    Sale.objects.filter(
+                        Q(course__title__in=course_titles) | Q(course_title_snapshot__in=course_titles)
+                    )
+                    .annotate(course_title=Coalesce(F('course__title'), F('course_title_snapshot')))
+                    .values('course_title')
+                    .annotate(
+                        paid_count=Count('id', filter=Q(status='paid')),
+                        total_attempts=Count('id')
+                    )
+                )
                 
-                # Última venda do curso
-                last_sale = Sale.objects.filter(
-                    Q(course__title=title) | Q(course_title_snapshot=title),
-                    status='paid'
-                ).order_by('-created_at').first()
+                for item in conversion_query:
+                    title = item['course_title']
+                    conversion_data[title] = {
+                        'paid': item['paid_count'],
+                        'attempts': item['total_attempts']
+                    }
+            
+            top_courses_data = []
+            for course in top_courses_base:
+                title = course['course_title']
+                conv_data = conversion_data.get(title, {'paid': 0, 'attempts': 0})
+                course_conversion = (conv_data['paid'] / conv_data['attempts'] * 100) if conv_data['attempts'] > 0 else 0
                 
                 top_courses_data.append({
                     'course_title': title,
                     'total_sales': course['total_sales'],
                     'total_revenue': float(course['total_revenue']),
                     'conversion_rate': round(course_conversion, 2),
-                    'last_sale_date': last_sale.created_at if last_sale else None
+                    'last_sale_date': course['last_sale_date']
                 })
             
             # Novos alunos no período
@@ -181,35 +197,68 @@ class DashboardOverviewView(generics.GenericAPIView):
                 created_at__date__gte=period_start
             ).values('email').distinct().count()
             
-            # Dados para gráficos (últimos 30 dias)
+            # Dados para gráficos - OTIMIZADO: adapta-se ao período selecionado
+            # Define quantos dias mostrar baseado no período (com limite de performance)
+            if period == 'today':
+                days_for_chart = 1
+                chart_start_date = today
+            elif period == 'week':
+                days_for_chart = 7
+                chart_start_date = today - timedelta(days=6)
+            elif period == 'month':
+                days_for_chart = 30
+                chart_start_date = today - timedelta(days=29)
+            elif period == 'quarter':
+                days_for_chart = 30  # Limita a 30 dias mais recentes para performance
+                chart_start_date = today - timedelta(days=29)
+            elif period == 'year':
+                days_for_chart = 30  # Limita a 30 dias mais recentes para performance
+                chart_start_date = today - timedelta(days=29)
+            else:
+                days_for_chart = 30
+                chart_start_date = today - timedelta(days=29)
+            
+            # Query única com agregação por dia (muito mais rápida que N queries separadas)
+            daily_data = (
+                Sale.objects.filter(
+                    status='paid',
+                    created_at__date__gte=chart_start_date
+                )
+                .annotate(day=TruncDate('created_at'))
+                .values('day')
+                .annotate(
+                    daily_revenue=Sum('price'),
+                    daily_count=Count('id')
+                )
+                .order_by('day')
+            )
+            
+            # Cria dicionário para lookup rápido
+            daily_dict = {
+                item['day']: {
+                    'revenue': float(item['daily_revenue'] or 0),
+                    'count': item['daily_count']
+                }
+                for item in daily_data
+            }
+            
+            # Preenche todos os dias (incluindo dias sem vendas)
             revenue_chart_data = []
             sales_chart_data = []
             
-            for i in range(30):
-                date = today - timedelta(days=i)
-                day_revenue = Sale.objects.filter(
-                    status='paid',
-                    created_at__date=date
-                ).aggregate(total=Sum('price'))['total'] or 0
-                
-                day_sales = Sale.objects.filter(
-                    status='paid',
-                    created_at__date=date
-                ).count()
+            for i in range(days_for_chart):
+                date = chart_start_date + timedelta(days=i)
+                day_data = daily_dict.get(date, {'revenue': 0, 'count': 0})
                 
                 revenue_chart_data.append({
                     'date': date.strftime('%Y-%m-%d'),
-                    'value': float(day_revenue)
+                    'value': day_data['revenue']
                 })
                 
                 sales_chart_data.append({
                     'date': date.strftime('%Y-%m-%d'),
-                    'value': day_sales
+                    'value': day_data['count']
                 })
-            
-            # Inverte para ordem cronológica
-            revenue_chart_data.reverse()
-            sales_chart_data.reverse()
             
             # Prepara dados para o serializer
             dashboard_data = {

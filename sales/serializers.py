@@ -19,11 +19,18 @@ class SaleSerializer(serializers.ModelSerializer):
 
 
 class SaleListSerializer(serializers.ModelSerializer):
-    course_title = serializers.CharField(source='course.title', read_only=True)
+    # OTIMIZADO: usa SerializerMethodField para lidar com cursos excluídos sem query extra
+    course_title = serializers.SerializerMethodField()
     
     class Meta:
         model = Sale
         fields = [
             'id', 'student_name', 'email', 'phone', 'course_title',
             'price', 'payment_method', 'status', 'created_at'
-        ] 
+        ]
+    
+    def get_course_title(self, obj):
+        """Retorna título do curso do snapshot se curso foi excluído"""
+        if obj.course:
+            return obj.course.title
+        return obj.course_title_snapshot or 'Curso removido' 

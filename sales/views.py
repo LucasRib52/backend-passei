@@ -42,8 +42,9 @@ class SalesPagination(PageNumberPagination):
 class AdminSaleViewSet(generics.ListCreateAPIView):
     """
     CRUD completo de vendas para o painel admin
+    OTIMIZADO: select_related para evitar N+1 queries
     """
-    queryset = Sale.objects.all()
+    queryset = Sale.objects.select_related('course').all()
     serializer_class = SaleSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -56,8 +57,9 @@ class AdminSaleViewSet(generics.ListCreateAPIView):
 class AdminSaleDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     Detalhes, atualização e exclusão de venda para o painel admin
+    OTIMIZADO: select_related para evitar N+1 queries
     """
-    queryset = Sale.objects.all()
+    queryset = Sale.objects.select_related('course').all()
     serializer_class = SaleSerializer
     permission_classes = [IsAuthenticated]
     lookup_field = 'id'
@@ -66,8 +68,9 @@ class AdminSaleDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AdminSaleListView(generics.ListAPIView):
     """
     Lista de vendas para o painel admin (versão simplificada) com paginação
+    OTIMIZADO: select_related para evitar N+1 queries
     """
-    queryset = Sale.objects.all()
+    queryset = Sale.objects.select_related('course').all()
     serializer_class = SaleListSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = SalesPagination
@@ -196,22 +199,41 @@ def sales_statistics(request):
             .order_by('-total')[:5]  # Top 5 cursos
         )
         
-        # Vendas por dia (últimos 7 dias) - APENAS PAGAS
-        daily_stats = []
-        for i in range(7):
-            date = timezone.now() - timedelta(days=i)
-            day_sales = base_queryset.filter(
-                created_at__date=date.date()
-            ).aggregate(
+        # Vendas por dia (últimos 7 dias) - OTIMIZADO: query única
+        from django.db.models.functions import TruncDate
+        
+        seven_days_ago = timezone.now() - timedelta(days=6)
+        daily_data = (
+            base_queryset.filter(created_at__gte=seven_days_ago)
+            .annotate(day=TruncDate('created_at'))
+            .values('day')
+            .annotate(
                 count=Count('id'),
                 total=Sum('price')
             )
+            .order_by('day')
+        )
+        
+        # Cria dicionário para lookup
+        daily_dict = {
+            item['day']: {
+                'count': item['count'],
+                'total': float(item['total'] or 0)
+            }
+            for item in daily_data
+        }
+        
+        # Preenche todos os 7 dias
+        daily_stats = []
+        for i in range(7):
+            date = (timezone.now() - timedelta(days=6-i)).date()
+            day_data = daily_dict.get(date, {'count': 0, 'total': 0})
+            
             daily_stats.append({
                 'date': date.strftime('%Y-%m-%d'),
-                'count': day_sales['count'] or 0,
-                'total': float(day_sales['total'] or 0)
+                'count': day_data['count'],
+                'total': day_data['total']
             })
-        daily_stats.reverse()
         
         # Cálculos derivados
         total_revenue = float(total_sales['total'] or 0)
