@@ -8,7 +8,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.views import View
 import json
-from django.db.models import Sum, Count, Avg
+from django.db.models import Sum, Count, Avg, Q, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.pagination import PageNumberPagination
@@ -181,13 +182,17 @@ def sales_statistics(request):
             total=Sum('price')
         )
         
-        # Vendas por curso
-        course_stats = base_queryset.values(
-            'course__title'
-        ).annotate(
-            count=Count('id'),
-            total=Sum('price')
-        ).order_by('-total')[:5]  # Top 5 cursos
+        # Vendas por curso (suporta curso excluído via snapshot)
+        course_stats = (
+            base_queryset
+            .annotate(course_title=Coalesce(F('course__title'), F('course_title_snapshot')))
+            .values('course_title')
+            .annotate(
+                count=Count('id'),
+                total=Sum('price')
+            )
+            .order_by('-total')[:5]  # Top 5 cursos
+        )
         
         # Vendas por dia (últimos 7 dias) - APENAS PAGAS
         daily_stats = []

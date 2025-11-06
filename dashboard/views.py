@@ -3,7 +3,8 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import datetime, timedelta
 from .serializers import (
@@ -93,11 +94,12 @@ class DashboardOverviewView(generics.GenericAPIView):
             for s in sales_qs:
                 key = s.asaas_payment_id or f"sale_{s.id}"
                 if key not in groups:
+                    title = s.course.title if getattr(s, 'course', None) else (s.course_title_snapshot or 'Curso removido')
                     groups[key] = {
                         'sales': [s],
                         'latest': s.created_at,
                         'max_price': float(s.price),  # valor total em carrinho será o maior
-                        'course_titles': [s.course.title],
+                        'course_titles': [title],
                         'main_sale': s,
                     }
                 else:
@@ -105,7 +107,8 @@ class DashboardOverviewView(generics.GenericAPIView):
                     g['sales'].append(s)
                     if s.created_at > g['latest']:
                         g['latest'] = s.created_at
-                    g['course_titles'].append(s.course.title)
+                    title = s.course.title if getattr(s, 'course', None) else (s.course_title_snapshot or 'Curso removido')
+                    g['course_titles'].append(title)
                     if float(s.price) > g['max_price']:
                         g['max_price'] = float(s.price)
                         g['main_sale'] = s
@@ -120,7 +123,7 @@ class DashboardOverviewView(generics.GenericAPIView):
                 if len(g['course_titles']) > 1:
                     course_title = f"Carrinho: {g['course_titles'][0]} + {len(g['course_titles']) - 1} outros"
                 else:
-                    course_title = sale.course.title
+                    course_title = sale.course.title if getattr(sale, 'course', None) else (sale.course_title_snapshot or 'Curso removido')
                 
                 recent_sales_data.append({
                     'id': sale.id,
@@ -134,33 +137,38 @@ class DashboardOverviewView(generics.GenericAPIView):
                 })
             
             # Cursos mais vendidos
-            top_courses = Sale.objects.filter(
-                status='paid'
-            ).values('course__title').annotate(
-                total_sales=Count('id'),
-                total_revenue=Sum('price')
-            ).order_by('-total_revenue')[:5]
+            top_courses = (
+                Sale.objects.filter(status='paid')
+                .annotate(course_title=Coalesce(F('course__title'), F('course_title_snapshot')))
+                .values('course_title')
+                .annotate(
+                    total_sales=Count('id'),
+                    total_revenue=Sum('price')
+                )
+                .order_by('-total_revenue')[:5]
+            )
             
             top_courses_data = []
             for course in top_courses:
                 # Calcula taxa de conversão por curso
+                title = course['course_title']
                 course_sales = Sale.objects.filter(
-                    course__title=course['course__title'],
+                    Q(course__title=title) | Q(course_title_snapshot=title),
                     status='paid'
                 ).count()
                 course_attempts = Sale.objects.filter(
-                    course__title=course['course__title']
+                    Q(course__title=title) | Q(course_title_snapshot=title)
                 ).count()
                 course_conversion = (course_sales / course_attempts * 100) if course_attempts > 0 else 0
                 
                 # Última venda do curso
                 last_sale = Sale.objects.filter(
-                    course__title=course['course__title'],
+                    Q(course__title=title) | Q(course_title_snapshot=title),
                     status='paid'
                 ).order_by('-created_at').first()
                 
                 top_courses_data.append({
-                    'course_title': course['course__title'],
+                    'course_title': title,
                     'total_sales': course['total_sales'],
                     'total_revenue': float(course['total_revenue']),
                     'conversion_rate': round(course_conversion, 2),
@@ -252,12 +260,16 @@ class TopCoursesView(generics.ListAPIView):
     
     def get_queryset(self):
         from sales.models import Sale
-        return Sale.objects.filter(
-            status='paid'
-        ).values('course__title').annotate(
-            total_sales=Count('id'),
-            total_revenue=Sum('price')
-        ).order_by('-total_revenue')[:10]
+        return (
+            Sale.objects.filter(status='paid')
+            .annotate(course_title=Coalesce(F('course__title'), F('course_title_snapshot')))
+            .values('course_title')
+            .annotate(
+                total_sales=Count('id'),
+                total_revenue=Sum('price')
+            )
+            .order_by('-total_revenue')[:10]
+        )
 
 
 class DashboardMetricsView(generics.ListAPIView):

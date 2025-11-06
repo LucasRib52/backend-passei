@@ -20,7 +20,10 @@ class Sale(models.Model):
     student_name = models.CharField(max_length=200, verbose_name='Nome do Aluno')
     email = models.EmailField(verbose_name='Email')
     phone = models.CharField(max_length=20, verbose_name='Telefone')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, verbose_name='Curso')
+    # Preserva vendas quando o curso é excluído
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Curso')
+    # Snapshot do título do curso para manter referência mesmo após exclusão
+    course_title_snapshot = models.CharField(max_length=200, blank=True, null=True, verbose_name='Título do Curso (snapshot)')
     
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Preço')
     payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES, verbose_name='Método de Pagamento')
@@ -56,7 +59,12 @@ class Sale(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.student_name} - {self.course.title}"
+        course_title = None
+        if getattr(self, 'course', None):
+            course_title = getattr(self.course, 'title', None)
+        if not course_title:
+            course_title = self.course_title_snapshot or 'Curso removido'
+        return f"{self.student_name} - {course_title}"
     
     @property
     def full_address(self):
@@ -78,3 +86,9 @@ class Sale(models.Model):
             parts.append(self.postal_code)
         
         return ', '.join(parts) if parts else ''
+
+    def save(self, *args, **kwargs):
+        # Garante snapshot do título do curso
+        if self.course and not self.course_title_snapshot:
+            self.course_title_snapshot = self.course.title
+        super().save(*args, **kwargs)
