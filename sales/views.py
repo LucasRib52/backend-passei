@@ -93,18 +93,20 @@ class AdminSaleListView(generics.ListAPIView):
                 key = s.asaas_payment_id or f"sale_{s.id}"
                 group = groups.get(key)
                 if group is None:
+                    course_title = s.course.title if s.course else (s.course_title_snapshot or 'Curso removido')
                     groups[key] = {
                         'sales': [s],
                         'latest': s.created_at,
                         'max_price': float(s.price),
-                        'course_titles': [s.course.title],
+                        'course_titles': [course_title],
                         'main_sale': s,
                     }
                 else:
                     group['sales'].append(s)
                     if s.created_at > group['latest']:
                         group['latest'] = s.created_at
-                    group['course_titles'].append(s.course.title)
+                    course_title = s.course.title if s.course else (s.course_title_snapshot or 'Curso removido')
+                    group['course_titles'].append(course_title)
                     price_val = float(s.price)
                     if price_val > group['max_price']:
                         group['max_price'] = price_val
@@ -117,7 +119,7 @@ class AdminSaleListView(generics.ListAPIView):
                 if len(group['course_titles']) > 1:
                     course_title = f"Carrinho: {group['course_titles'][0]} + {len(group['course_titles']) - 1} outros"
                 else:
-                    course_title = s.course.title
+                    course_title = s.course.title if s.course else (s.course_title_snapshot or 'Curso removido')
 
                 items.append({
                     'id': s.id,
