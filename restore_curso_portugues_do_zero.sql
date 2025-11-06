@@ -3,11 +3,11 @@
 
 SET FOREIGN_KEY_CHECKS=0;
 
--- 1. Insere o curso se não existir
+-- 1. Insere o curso se não existir (usando a ordem correta das colunas)
 INSERT IGNORE INTO `courses_course` 
-(`id`, `title`, `description`, `price`, `original_price`, `duration`, `students_count`, `rating`, `reviews_count`, `detailed_description`, `content`, `status`, `created_at`, `updated_at`, `professor_id`, `category_id`, `course_image`, `course_video`, `video_url`, `allow_pix`, `allow_credit_card`, `allow_bank_slip`, `allow_boleto_installments`, `themembers_product_id`, `whatsapp_group_link`, `is_bestseller`, `is_complete`, `is_featured`) 
+(`id`, `title`, `description`, `price`, `original_price`, `duration`, `students_count`, `rating`, `reviews_count`, `benefits`, `requirements`, `status`, `created_at`, `updated_at`, `themembers_link`, `asaas_product_id`, `professor_id`, `detailed_description`, `content`, `is_bestseller`, `is_complete`, `is_featured`, `is_new`, `category_id`, `themembers_product_id`, `course_image`, `whatsapp_group_link`, `course_video`, `video_url`, `allow_bank_slip`, `allow_boleto_installments`, `allow_credit_card`, `allow_pix`, `max_boleto_installments`) 
 VALUES 
-(21, 'Português do Zero', 'Curso completo de Português do Zero', 69.90, NULL, '90 horas', 0, 0.00, 0, NULL, NULL, 'active', '2025-11-06 19:35:51.000000', '2025-11-06 19:35:51.000000', 4, 12, NULL, NULL, NULL, 1, 0, 1, 1, NULL);
+(21, 'Português do Zero', 'Curso completo de Português do Zero', 69.90, NULL, '90 horas', 0, 0.00, 0, NULL, NULL, 'active', '2025-11-06 19:35:51.000000', '2025-11-06 19:35:51.000000', NULL, NULL, 4, NULL, NULL, 0, 0, 0, 0, 12, NULL, NULL, NULL, NULL, NULL, 1, 1, 0, 1, 12);
 
 -- 2. Insere vendas do curso ID 21 (apenas se não existirem)
 INSERT IGNORE INTO `sales_sale` 
