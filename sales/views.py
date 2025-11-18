@@ -328,6 +328,20 @@ def create_sale_and_redirect(request):
         if payment_method not in allowed or not allowed[payment_method]:
             return Response({'error': 'Forma de pagamento não permitida para este curso'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validação de valor mínimo para o Asaas
+        # Observação: na prática, cobranças abaixo de R$ 15,00 costumam ser recusadas pelo checkout.
+        # Em vez de deixar estourar 500, devolvemos um erro amigável.
+        try:
+            course_price_float = float(course.price)
+        except Exception:
+            course_price_float = None
+        if course_price_float is None:
+            return Response({'error': 'Preço do curso inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if course_price_float < 15.0:
+            return Response({
+                'error': 'O valor mínimo para pagamento é R$ 15,00. Ajuste o preço do curso para concluir o checkout.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         # Cria a venda
         sale = Sale.objects.create(
             course=course,

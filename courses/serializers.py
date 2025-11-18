@@ -1,4 +1,5 @@
 from rest_framework import serializers
+import re
 from .models import Course, Module, Lesson, Category
 from professors.serializers import ProfessorSerializer
 from professors.models import Professor
@@ -130,6 +131,31 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
             'professors', 'categories', 'themembers_product_ids'
         ]
     original_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+
+    # --- Validações de campo ---
+    def validate_title(self, value: str):
+        """
+        O Asaas não aceita emojis na descrição/título que enviamos.
+        Bloqueamos aqui para evitar erro no checkout.
+        """
+        if not value:
+            return value
+        emoji_pattern = re.compile(
+            "["
+            u"\U0001F600-\U0001F64F"  # emoticons
+            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+            u"\U0001F680-\U0001F6FF"  # transport & map symbols
+            u"\U0001F1E0-\U0001F1FF"  # flags
+            u"\U0001F900-\U0001F9FF"  # supplemental symbols
+            u"\U0001FA70-\U0001FAFF"  # symbols extended-A
+            u"\u2600-\u26FF"          # misc symbols
+            u"\u2700-\u27BF"          # dingbats
+            "]+",
+            flags=re.UNICODE,
+        )
+        if emoji_pattern.search(value):
+            raise serializers.ValidationError("Título não pode conter emoji. Remova símbolos/emoji do título.")
+        return value
 
     def _parse_list_field(self, value):
         """Aceita lista, JSON string ou string separada por vírgula."""
